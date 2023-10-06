@@ -1,0 +1,60 @@
+---
+title: "Pobreza CONEVAL"
+output: html_document
+date: "2023-08-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, eval=TRUE)
+```
+
+# Carga de datos
+Primeramente, se cargan los datos, los espaciales y los no espaciales. En este caso, se trabajarán los resultados de pobreza que publica el CONEVAL (https://www.coneval.org.mx/Medicion/Paginas/Pobreza-municipio-2010-2020.aspx) y los archivos espaciales .shp que comparte INEGI (que aquí se los comparto yo).
+
+## Archivo no espacial
+Ya que la información la comparte CONEVAL en un archivo no-espacial (tabla de Excel), utilizaremos el paquete llamado "readxl" para leer datos almacenados en hojas de cálculo .xlsx.
+
+Para leer archivos espaciales .shp, se utilizará la función 'read_sf' del paquete sf. 
+
+*Se deben de tener instaladas la paqueterías instaladas previamente. 
+
+```{r}
+require(readxl)
+dato_coneval<-read_xlsx("P:\\Geoesta\\Estadistica-Espacial-main\\coneval\\pobreza_2010_2015_2020.xlsx",sheet="Hoja1")
+```
+
+Ahora, leer el archivo espacial, el cual es tipo .shp. Explorar los polígonos y las 'features' ligadas a cada polígono. 
+```{r}
+require(sf)
+datos_muni<-read_sf("P:\\Mapas\\00mun2.shp")
+```
+
+Posteriormente, se hará una unión de los dos archivos anteriores en solo uno. Por fines ilustrativos, solo se utilizará la columna "pob_ing_extre_porc_2020" de la base de datos de CONEVAL. La función que une bases de datos, utilizando campos "llave", se llama 'merge" y está cargada en la versión base de R. 
+
+```{r }
+datos_esp_coneval<-sp::merge(datos_muni,dato_coneval[,c(3,139)],by.x="CVEGEO",by.y="cve_mun",all.x=TRUE)
+datos_esp_coneval$pob_ing_extre_porc_2020<-as.numeric(datos_esp_coneval$pob_ing_extre_porc_2020)
+```
+
+El primer mapa a realizar, será mediante la función 'ggplot' de la paquetería 'ggplot2'. El color con el que se rellenarán los polígonos (municipios) será continuo con el tema tipo "inferno" de la función 'scale_fill_viridis_c'
+
+```{r }
+library(ggplot2)
+library(ggspatial)
+ggplot(data = datos_esp_coneval) +
+  geom_sf(aes(fill = pob_ing_extre_porc_2020), alpha = 0.8) +
+  scale_fill_viridis_c(option="B",direction = -1) +
+  ggtitle(label = "Pobreza extrema % 2020", subtitle = "Por ingreso")
+```
+
+Con fines ilustrativos, se realizará otro mapa, en el cual se generarán cinco clases de la variable en interés. 
+
+```{r }
+library(RColorBrewer)
+my_colors <- brewer.pal(9, "Reds") 
+my_colors <- colorRampPalette(my_colors)(5)
+cuantil <- cut(datos_esp_coneval$pob_ing_extre_porc_2020, 5)
+my_colors <- my_colors[as.numeric(cuantil)]
+plot(datos_esp_coneval["pob_ing_extre_porc_2020"] , col=my_colors ,  bg = "white")
+```
+
